@@ -58,14 +58,21 @@ export default function HostelsPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: form.name, address: form.address } as CreatePayload),
         });
-        if (!res.ok) throw new Error(await res.text());
+        if (!res.ok) {
+          let msg = 'Failed to save hostel';
+          try {
+            const data = await res.json();
+            msg = data?.error?.message || data?.message || msg;
+          } catch {}
+          throw new Error(msg);
+        }
       }
       setShowForm(false);
       resetForm();
       await fetchHostels();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Submit hostel failed', e);
-      alert('Failed to save hostel');
+      alert(e?.message || 'Failed to save hostel');
     }
   }
 

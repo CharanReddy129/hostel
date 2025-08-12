@@ -22,9 +22,11 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
 
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 mx-auto mt-24 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <div className="absolute inset-0 z-0 bg-black/40 pointer-events-auto" onClick={onClose} />
+      {/* Dialog */}
+      <div className="relative z-10 mt-24 w-full max-w-2xl rounded-lg border bg-card text-card-foreground shadow-xl pointer-events-auto">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-base font-medium">{title}</h3>
           <button aria-label="Close" className="h-8 w-8 grid place-items-center rounded-md hover:bg-muted" onClick={onClose}>
