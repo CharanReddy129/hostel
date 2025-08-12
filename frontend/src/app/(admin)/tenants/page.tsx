@@ -20,16 +20,19 @@ type TenantStay = {
   bed: { id: string; bedNumber: string };
 };
 
-// GET /api/v1/beds returns Bed list
+// GET /api/v1/rooms -> Room list
+type Room = { id: string; roomNumber: string };
+// GET /api/v1/beds -> Bed list
 type Bed = { id: string; bedNumber: string };
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<TenantStay[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bedId: '', checkInDate: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', roomId: '', bedId: '', checkInDate: '' });
 
   const fullName = (t: TenantStay) => `${t.user.firstName} ${t.user.lastName}`.trim();
 
@@ -44,7 +47,8 @@ export default function TenantsPage() {
   );
 
   const resetForm = () => {
-    setForm({ firstName: '', lastName: '', email: '', phone: '', bedId: '', checkInDate: '' });
+    setForm({ firstName: '', lastName: '', email: '', phone: '', roomId: '', bedId: '', checkInDate: '' });
+    setBeds([]);
   };
 
   async function fetchTenants() {
@@ -64,26 +68,58 @@ export default function TenantsPage() {
     }
   }
 
-  async function fetchBeds() {
+  async function fetchRooms() {
     try {
-      const res = await fetch(`${API_URL}/beds?limit=1000`);
+      const res = await fetch(`${API_URL}/rooms?limit=1000`);
+      const json = await res.json();
+      if (json.success) {
+        const list = (json.data.rooms as any[]).map((r) => ({ id: r.id, roomNumber: r.roomNumber })) as Room[];
+        setRooms(list);
+      }
+    } catch (e) {
+      console.error('Error fetching rooms', e);
+    }
+  }
+
+  async function fetchBedsForRoom(roomId: string) {
+    if (!roomId) {
+      setBeds([]);
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/beds?limit=1000&roomId=${encodeURIComponent(roomId)}&status=VACANT`);
       const json = await res.json();
       if (json.success) {
         const list = (json.data.beds as any[]).map((b) => ({ id: b.id, bedNumber: b.bedNumber })) as Bed[];
         setBeds(list);
+      } else {
+        setBeds([]);
       }
     } catch (e) {
       console.error('Error fetching beds', e);
+      setBeds([]);
     }
   }
 
   useEffect(() => {
     fetchTenants();
-    fetchBeds();
+    fetchRooms();
   }, []);
 
+  // When room changes, reset bed and load only VACANT beds for that room
+  useEffect(() => {
+    if (form.roomId) {
+      setForm((f) => ({ ...f, bedId: '' }));
+      fetchBedsForRoom(form.roomId);
+    } else {
+      setBeds([]);
+      setForm((f) => ({ ...f, bedId: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.roomId]);
+
   async function handleCreate() {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.bedId) return;
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.bedId || !form.roomId) return;
     try {
       const res = await fetch(`${API_URL}/tenants`, {
         method: 'POST',
@@ -157,18 +193,31 @@ export default function TenantsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="bedId">Bed</Label>
-              <Select id="bedId" value={form.bedId} onChange={(e) => setForm((f) => ({ ...f, bedId: e.target.value }))}>
-                <option value="">Select a bed</option>
-                {beds.map((b) => (
-                  <option key={b.id} value={b.id}>{b.bedNumber}</option>
+              <Label htmlFor="roomId">Room</Label>
+              <Select id="roomId" value={form.roomId} onChange={(e) => setForm((f) => ({ ...f, roomId: e.target.value }))}>
+                <option value="">Select a room</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>{r.roomNumber}</option>
                 ))}
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="checkInDate">Check-in date</Label>
-              <Input id="checkInDate" type="date" value={form.checkInDate} onChange={(e) => setForm((f) => ({ ...f, checkInDate: e.target.value }))} />
+              <Label htmlFor="bedId">Bed</Label>
+              <Select id="bedId" value={form.bedId} onChange={(e) => setForm((f) => ({ ...f, bedId: e.target.value }))} disabled={!form.roomId}>
+                <option value="">{form.roomId ? 'Select a bed' : 'Select a room first'}</option>
+                {beds.length === 0 && form.roomId ? (
+                  <option value="" disabled>No vacant beds available</option>
+                ) : (
+                  beds.map((b) => (
+                    <option key={b.id} value={b.id}>{b.bedNumber}</option>
+                  ))
+                )}
+              </Select>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="checkInDate">Check-in date</Label>
+            <Input id="checkInDate" type="date" value={form.checkInDate} onChange={(e) => setForm((f) => ({ ...f, checkInDate: e.target.value }))} />
           </div>
         </div>
       </Modal>

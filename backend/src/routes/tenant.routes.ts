@@ -36,11 +36,22 @@ router.post('/', async (req, res) => {
   const parsed = createTenantDto.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() } });
   const { email, firstName, lastName, phone, bedId, checkInDate } = parsed.data;
-  // For now, create a user without password/auth; can be extended later
-  const org = await prisma.organization.upsert({ where: { id: 'org-seed' }, update: {}, create: { id: 'org-seed', name: 'Seed Org', subdomain: 'seed-org' } });
-  const user = await prisma.user.create({ data: { organizationId: org.id, email, passwordHash: 'placeholder', firstName, lastName, phone } });
-  const stay = await prisma.tenantStay.create({ data: { userId: user.id, bedId, checkInDate: checkInDate ? new Date(checkInDate) : new Date(), status: 'ACTIVE' } });
-  res.status(201).json({ success: true, data: { user, stay } });
+
+  // Ensure bed exists and is VACANT; also ensure no ACTIVE stay for the bed
+  const bed = await prisma.bed.findUnique({ where: { id: bedId } });
+  if (!bed) return res.status(404).json({ success: false, error: { code: 'BED_NOT_FOUND', message: 'Selected bed does not exist' } });
+  if (bed.status !== 'VACANT') return res.status(400).json({ success: false, error: { code: 'BED_NOT_AVAILABLE', message: 'Selected bed is not available' } });
+  const activeStay = await prisma.tenantStay.findFirst({ where: { bedId, status: 'ACTIVE' as any } });
+  if (activeStay) return res.status(400).json({ success: false, error: { code: 'BED_OCCUPIED', message: 'Selected bed is already occupied' } });
+
+  const result = await prisma.$transaction(async (tx) => {
+    const org = await tx.organization.upsert({ where: { id: 'org-seed' }, update: {}, create: { id: 'org-seed', name: 'Seed Org', subdomain: 'seed-org' } });
+    const user = await tx.user.create({ data: { organizationId: org.id, email, passwordHash: 'placeholder', firstName, lastName, phone } });
+    await tx.bed.update({ where: { id: bedId }, data: { status: 'OCCUPIED' as any } });
+    const stay = await tx.tenantStay.create({ data: { userId: user.id, bedId, checkInDate: checkInDate ? new Date(checkInDate) : new Date(), status: 'ACTIVE' as any } });
+    return { user, stay };
+  });
+  res.status(201).json({ success: true, data: result });
 });
 
 router.put('/:id', async (req, res) => {
@@ -56,7 +67,12 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/check-out', async (req, res) => {
   const { id } = req.params;
   const body = z.object({ checkOutDate: z.string().optional(), reason: z.string().optional(), feedback: z.string().optional() }).parse(req.body);
-  const updated = await prisma.tenantStay.update({ where: { id }, data: { status: 'COMPLETED', checkOutDate: body.checkOutDate ? new Date(body.checkOutDate) : new Date() } });
-  res.json({ success: true, data: updated });
+  const result = await prisma.$transaction(async (tx) => {
+    const updated = await tx.tenantStay.update({ where: { id }, data: { status: 'COMPLETED' as any, checkOutDate: body.checkOutDate ? new Date(body.checkOutDate) : new Date() } });
+    // Mark bed as VACANT after checkout
+    await tx.bed.update({ where: { id: updated.bedId }, data: { status: 'VACANT' as any } });
+    return updated;
+  });
+  res.json({ success: true, data: result });
 });
 
