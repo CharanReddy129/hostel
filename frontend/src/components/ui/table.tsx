@@ -1,22 +1,24 @@
 import { ReactNode } from 'react';
 
-export function Table({ children }: { children: ReactNode }) {
-  return <table className="w-full text-sm">{children}</table>;
+type WithClassName = { children: ReactNode; className?: string };
+
+export function Table({ children, className }: WithClassName) {
+  return <table className={`w-full text-sm ${className ?? ''}`}>{children}</table>;
 }
-export function Thead({ children }: { children: ReactNode }) {
-  return <thead className="bg-muted/60 text-left">{children}</thead>;
+export function Thead({ children, className }: WithClassName) {
+  return <thead className={`bg-muted/60 text-left ${className ?? ''}`}>{children}</thead>;
 }
-export function Tbody({ children }: { children: ReactNode }) {
-  return <tbody>{children}</tbody>;
+export function Tbody({ children, className }: WithClassName) {
+  return <tbody className={className}>{children}</tbody>;
 }
-export function Tr({ children }: { children: ReactNode }) {
-  return <tr className="border-t">{children}</tr>;
+export function Tr({ children, className }: WithClassName) {
+  return <tr className={`border-t ${className ?? ''}`}>{children}</tr>;
 }
-export function Th({ children }: { children: ReactNode }) {
-  return <th className="px-4 py-2 font-medium">{children}</th>;
+export function Th({ children, className }: WithClassName) {
+  return <th className={`px-4 py-2 font-medium ${className ?? ''}`}>{children}</th>;
 }
-export function Td({ children }: { children: ReactNode }) {
-  return <td className="px-4 py-2">{children}</td>;
+export function Td({ children, className }: WithClassName) {
+  return <td className={`px-4 py-2 ${className ?? ''}`}>{children}</td>;
 }
 
 

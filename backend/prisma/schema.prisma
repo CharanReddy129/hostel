@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OWNER
+  TENANT
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+  DORMITORY
+}
+
+enum BedStatus {
+  VACANT
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum StayStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum NoticePriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  subdomain String   @unique
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users   User[]
+  hostels Hostel[]
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String   @unique
+  passwordHash   String
+  firstName      String
+  lastName       String
+  phone          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  roles        UserRole[]
+  tenantStays  TenantStay[]
+  notices      Notice[]    @relation("NoticeAuthor")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  hostelId  String?
+  role      Role
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  hostel Hostel? @relation(fields: [hostelId], references: [id])
+
+  @@unique([userId, hostelId, role])
+}
+
+model Hostel {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  address        String
+  contactInfo    Json     @default("{}")
+  totalBeds      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  rooms        Room[]
+  notices      Notice[]
+  userRoles    UserRole[]
+}
+
+model Room {
+  id         String   @id @default(uuid())
+  hostelId   String
+  roomNumber String
+  floor      String
+  roomType   RoomType
+  capacity   Int
+  amenities  Json     @default("[]")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  hostel Hostel @relation(fields: [hostelId], references: [id])
+  beds   Bed[]
+
+  @@unique([hostelId, roomNumber])
+}
+
+model Bed {
+  id          String    @id @default(uuid())
+  roomId      String
+  bedNumber   String
+  status      BedStatus @default(VACANT)
+  monthlyRent Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  room        Room         @relation(fields: [roomId], references: [id])
+  tenantStays TenantStay[]
+
+  @@unique([roomId, bedNumber])
+}
+
+model TenantStay {
+  id               String     @id @default(uuid())
+  userId           String
+  bedId            String
+  checkInDate      DateTime
+  checkOutDate     DateTime?
+  status           StayStatus @default(ACTIVE)
+  emergencyContact Json       @default("{}")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  bed  Bed  @relation(fields: [bedId], references: [id])
+}
+
+model Notice {
+  id        String         @id @default(uuid())
+  hostelId  String
+  createdBy String
+  title     String
+  content   String         @db.Text
+  priority  NoticePriority @default(MEDIUM)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  hostel Hostel @relation(fields: [hostelId], references: [id])
+  author User   @relation("NoticeAuthor", fields: [createdBy], references: [id])
+}
+

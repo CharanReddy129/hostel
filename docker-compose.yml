@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hostel_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=hostel_user
+      - POSTGRES_PASSWORD=hostel_pass
+      - POSTGRES_DB=hostel_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hostel_backend
+    depends_on:
+      - postgres
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=postgresql://hostel_user:hostel_pass@postgres:5432/hostel_db?schema=public
+      - CORS_ORIGIN=http://localhost:3000
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+    container_name: hostel_frontend
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
+    ports:
+      - "3000:3000"
+
+volumes:
+  pg_data:
+
