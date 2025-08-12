@@ -1,24 +1,46 @@
-import { ReactNode } from 'react';
+import type { TableHTMLAttributes, HTMLAttributes, ThHTMLAttributes, TdHTMLAttributes } from 'react';
 
-type WithClassName = { children: ReactNode; className?: string };
-
-export function Table({ children, className }: WithClassName) {
-  return <table className={`w-full text-sm ${className ?? ''}`}>{children}</table>;
+export function Table({ className, children, ...props }: TableHTMLAttributes<HTMLTableElement>) {
+  return (
+    <table className={`w-full text-sm ${className ?? ''}`} {...props}>
+      {children}
+    </table>
+  );
 }
-export function Thead({ children, className }: WithClassName) {
-  return <thead className={`bg-muted/60 text-left ${className ?? ''}`}>{children}</thead>;
+export function Thead({ className, children, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
+  return (
+    <thead className={`bg-muted/60 text-left ${className ?? ''}`} {...props}>
+      {children}
+    </thead>
+  );
 }
-export function Tbody({ children, className }: WithClassName) {
-  return <tbody className={className}>{children}</tbody>;
+export function Tbody({ className, children, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
+  return (
+    <tbody className={className} {...props}>
+      {children}
+    </tbody>
+  );
 }
-export function Tr({ children, className }: WithClassName) {
-  return <tr className={`border-t ${className ?? ''}`}>{children}</tr>;
+export function Tr({ className, children, ...props }: HTMLAttributes<HTMLTableRowElement>) {
+  return (
+    <tr className={`border-t ${className ?? ''}`} {...props}>
+      {children}
+    </tr>
+  );
 }
-export function Th({ children, className }: WithClassName) {
-  return <th className={`px-4 py-2 font-medium ${className ?? ''}`}>{children}</th>;
+export function Th({ className, children, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
+  return (
+    <th className={`px-4 py-2 font-medium ${className ?? ''}`} {...props}>
+      {children}
+    </th>
+  );
 }
-export function Td({ children, className }: WithClassName) {
-  return <td className={`px-4 py-2 ${className ?? ''}`}>{children}</td>;
+export function Td({ className, children, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
+  return (
+    <td className={`px-4 py-2 ${className ?? ''}`} {...props}>
+      {children}
+    </td>
+  );
 }
 
 

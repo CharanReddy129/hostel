@@ -34,7 +34,13 @@ router.post('/', async (req, res) => {
   const parsed = createHostelDto.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parsed.error.flatten() } });
   const { name, address, contactInfo } = parsed.data;
-  const created = await prisma.hostel.create({ data: { organizationId: 'org-seed', name, address, contactInfo: contactInfo ?? {} } as any });
+  // Ensure seed organization exists before creating a hostel
+  const org = await prisma.organization.upsert({
+    where: { id: 'org-seed' },
+    update: {},
+    create: { id: 'org-seed', name: 'Seed Org', subdomain: 'seed-org' },
+  });
+  const created = await prisma.hostel.create({ data: { organizationId: org.id, name, address, contactInfo: contactInfo ?? {} } });
   res.status(201).json({ success: true, data: created });
 });
 

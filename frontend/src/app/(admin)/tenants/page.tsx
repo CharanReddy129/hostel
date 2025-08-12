@@ -1,47 +1,115 @@
 "use client";
-import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useMemo, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Label } from '@/components/ui/label';
+import { Select } from '@/components/ui/select';
+import { API_URL } from '@/lib/constants';
 
-const initialTenants = [
-  { id: 't1', name: 'John Tenant', email: 'john@example.com', phone: '+1234567890', bed: '201-A', status: 'ACTIVE' },
-  { id: 't2', name: 'Jane Doe', email: 'jane@example.com', phone: '+0987654321', bed: '301-B', status: 'INACTIVE' },
-];
+// Types aligned with backend responses
+// GET /api/v1/tenants returns TenantStay with include { user, bed }
+type TenantStay = {
+  id: string;
+  status: 'ACTIVE' | 'COMPLETED';
+  checkInDate: string;
+  checkOutDate?: string | null;
+  user: { id: string; firstName: string; lastName: string; email: string; phone?: string | null };
+  bed: { id: string; bedNumber: string };
+};
+
+// GET /api/v1/beds returns Bed list
+type Bed = { id: string; bedNumber: string };
 
 export default function TenantsPage() {
-  const [tenants, setTenants] = useState(initialTenants);
+  const [tenants, setTenants] = useState<TenantStay[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', bed: '-', status: 'ACTIVE' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', bedId: '', checkInDate: '' });
+
+  const fullName = (t: TenantStay) => `${t.user.firstName} ${t.user.lastName}`.trim();
 
   const filtered = useMemo(
-    () => tenants.filter((t) => `${t.name} ${t.email} ${t.phone}`.toLowerCase().includes(query.toLowerCase())),
+    () =>
+      tenants.filter((t) =>
+        `${fullName(t)} ${t.user.email} ${t.user.phone ?? ''} ${t.bed.bedNumber}`
+          .toLowerCase()
+          .includes(query.toLowerCase())
+      ),
     [tenants, query]
   );
 
   const resetForm = () => {
-    setForm({ name: '', email: '', phone: '', bed: '-', status: 'ACTIVE' });
-    setEditingId(null);
+    setForm({ firstName: '', lastName: '', email: '', phone: '', bedId: '', checkInDate: '' });
   };
 
-  const handleSubmit = () => {
-    if (!form.name.trim() || !form.email.trim()) return;
-    if (editingId) {
-      setTenants((prev) => prev.map((t) => (t.id === editingId ? { ...t, ...form } : t)));
-    } else {
-      setTenants((prev) => [
-        ...prev,
-        { id: String(prev.length + 1), ...form },
-      ]);
+  async function fetchTenants() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/tenants`);
+      const json = await res.json();
+      if (json.success) {
+        setTenants(json.data.tenants as TenantStay[]);
+      } else {
+        console.error('Failed to fetch tenants', json);
+      }
+    } catch (e) {
+      console.error('Error fetching tenants', e);
+    } finally {
+      setLoading(false);
     }
-    setShowForm(false);
-    resetForm();
-  };
+  }
+
+  async function fetchBeds() {
+    try {
+      const res = await fetch(`${API_URL}/beds?limit=1000`);
+      const json = await res.json();
+      if (json.success) {
+        const list = (json.data.beds as any[]).map((b) => ({ id: b.id, bedNumber: b.bedNumber })) as Bed[];
+        setBeds(list);
+      }
+    } catch (e) {
+      console.error('Error fetching beds', e);
+    }
+  }
+
+  useEffect(() => {
+    fetchTenants();
+    fetchBeds();
+  }, []);
+
+  async function handleCreate() {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.bedId) return;
+    try {
+      const res = await fetch(`${API_URL}/tenants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phone || undefined,
+          bedId: form.bedId,
+          checkInDate: form.checkInDate || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        alert(`Failed to create tenant: ${msg}`);
+        return;
+      }
+      setShowForm(false);
+      resetForm();
+      await fetchTenants();
+    } catch (e) {
+      console.error('Create tenant failed', e);
+      alert('Failed to create tenant');
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -54,48 +122,61 @@ export default function TenantsPage() {
           {showForm ? 'Close' : 'New Tenant'}
         </Button>
       </div>
+
       <Modal
         isOpen={showForm}
         onClose={() => { setShowForm(false); resetForm(); }}
-        title={editingId ? 'Edit Tenant' : 'Create Tenant'}
+        title="Create Tenant"
         footer={
           <>
             <Button variant="outline" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
-            <Button onClick={handleSubmit}>{editingId ? 'Update' : 'Create'}</Button>
+            <Button onClick={handleCreate}>Create</Button>
           </>
         }
       >
         <div className="grid grid-cols-1 gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+              <Label htmlFor="firstName">First name</Label>
+              <Input id="firstName" value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+              <Label htmlFor="lastName">Last name</Label>
+              <Input id="lastName" value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
               <Label htmlFor="phone">Phone</Label>
               <Input id="phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bed">Bed</Label>
-              <Input id="bed" value={form.bed} onChange={(e) => setForm((f) => ({ ...f, bed: e.target.value }))} />
-            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="status">Status</Label>
-            <Input id="status" value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="bedId">Bed</Label>
+              <Select id="bedId" value={form.bedId} onChange={(e) => setForm((f) => ({ ...f, bedId: e.target.value }))}>
+                <option value="">Select a bed</option>
+                {beds.map((b) => (
+                  <option key={b.id} value={b.id}>{b.bedNumber}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="checkInDate">Check-in date</Label>
+              <Input id="checkInDate" type="date" value={form.checkInDate} onChange={(e) => setForm((f) => ({ ...f, checkInDate: e.target.value }))} />
+            </div>
           </div>
         </div>
       </Modal>
+
       <Card>
         <CardContent>
           <div className="mb-3">
-            <Input placeholder="Search tenants by name, email or phone" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <Input placeholder="Search tenants by name, email, phone or bed number" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
           <Table>
             <Thead>
@@ -105,32 +186,24 @@ export default function TenantsPage() {
                 <Th>Phone</Th>
                 <Th>Bed</Th>
                 <Th>Status</Th>
-                <Th>Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {filtered.map((t) => (
-                <Tr key={t.id}>
-                  <Td>{t.name}</Td>
-                  <Td className="text-muted-foreground">{t.email}</Td>
-                  <Td>{t.phone}</Td>
-                  <Td>{t.bed}</Td>
-                  <Td>{t.status}</Td>
-                  <Td>
-                    <Button
-                      variant="outline"
-                      className="h-8 px-3"
-                      onClick={() => {
-                        setEditingId(t.id);
-                        setForm({ name: t.name, email: t.email, phone: t.phone, bed: t.bed, status: t.status });
-                        setShowForm(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  </Td>
-                </Tr>
-              ))}
+              {loading ? (
+                <Tr><Td colSpan={5}>Loading...</Td></Tr>
+              ) : filtered.length === 0 ? (
+                <Tr><Td colSpan={5}>No tenants</Td></Tr>
+              ) : (
+                filtered.map((t) => (
+                  <Tr key={t.id}>
+                    <Td>{fullName(t)}</Td>
+                    <Td className="text-muted-foreground">{t.user.email}</Td>
+                    <Td>{t.user.phone || '-'}</Td>
+                    <Td>{t.bed.bedNumber}</Td>
+                    <Td>{t.status}</Td>
+                  </Tr>
+                ))
+              )}
             </Tbody>
           </Table>
         </CardContent>
@@ -138,5 +211,3 @@ export default function TenantsPage() {
     </div>
   );
 }
-
-

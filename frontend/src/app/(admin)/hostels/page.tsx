@@ -1,41 +1,73 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@/components/ui/table';
 import { Modal } from '@/components/ui/modal';
+import { API_URL } from '@/lib/constants';
 
-const initialHostels = [
-  { id: '1', name: 'Downtown Hostel', address: '123 Main St', totalBeds: 100, occupiedBeds: 85 },
-  { id: '2', name: 'City Center PG', address: '456 Park Ave', totalBeds: 80, occupiedBeds: 62 },
-  { id: '3', name: 'Riverside Hostel', address: '789 River Rd', totalBeds: 60, occupiedBeds: 43 },
-];
+type Hostel = { id: string; name: string; address: string };
+
+type ListResponse = { success: boolean; data: { hostels: Hostel[]; pagination: any } };
+
+type CreatePayload = { name: string; address: string; contactInfo?: any };
 
 export default function HostelsPage() {
-  const [hostels, setHostels] = useState(initialHostels);
+  const [hostels, setHostels] = useState<Hostel[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', address: '' });
+  const [loading, setLoading] = useState(false);
+
+  async function fetchHostels() {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/hostels`);
+      const json: ListResponse = await res.json();
+      if (json.success) setHostels(json.data.hostels);
+    } catch (e) {
+      console.error('Failed to fetch hostels', e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchHostels();
+  }, []);
 
   const resetForm = () => {
     setForm({ name: '', address: '' });
     setEditingId(null);
   };
 
-  const handleSubmit = () => {
+  async function handleSubmit() {
     if (!form.name.trim() || !form.address.trim()) return;
-    if (editingId) {
-      setHostels((prev) => prev.map((h) => (h.id === editingId ? { ...h, name: form.name, address: form.address } : h)));
-    } else {
-      setHostels((prev) => [
-        ...prev,
-        { id: String(prev.length + 1), name: form.name, address: form.address, totalBeds: 0, occupiedBeds: 0 },
-      ]);
+    try {
+      if (editingId) {
+        const res = await fetch(`${API_URL}/hostels/${editingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.name, address: form.address }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+      } else {
+        const res = await fetch(`${API_URL}/hostels`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.name, address: form.address } as CreatePayload),
+        });
+        if (!res.ok) throw new Error(await res.text());
+      }
+      setShowForm(false);
+      resetForm();
+      await fetchHostels();
+    } catch (e) {
+      console.error('Submit hostel failed', e);
+      alert('Failed to save hostel');
     }
-    setShowForm(false);
-    resetForm();
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -73,33 +105,35 @@ export default function HostelsPage() {
               <Tr>
                 <Th>Name</Th>
                 <Th>Address</Th>
-                <Th>Beds</Th>
-                <Th>Occupancy</Th>
                 <Th>Actions</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {hostels.map((h) => (
-                <Tr key={h.id}>
-                  <Td>{h.name}</Td>
-                  <Td className="text-muted-foreground">{h.address}</Td>
-                  <Td>{h.totalBeds}</Td>
-                  <Td>{Math.round((h.occupiedBeds / h.totalBeds || 1) * 100)}%</Td>
-                  <Td>
-                    <Button
-                      variant="outline"
-                      className="h-8 px-3"
-                      onClick={() => {
-                        setEditingId(h.id);
-                        setForm({ name: h.name, address: h.address });
-                        setShowForm(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  </Td>
-                </Tr>
-              ))}
+              {loading ? (
+                <Tr><Td colSpan={3}>Loading...</Td></Tr>
+              ) : hostels.length === 0 ? (
+                <Tr><Td colSpan={3}>No hostels</Td></Tr>
+              ) : (
+                hostels.map((h) => (
+                  <Tr key={h.id}>
+                    <Td>{h.name}</Td>
+                    <Td className="text-muted-foreground">{h.address}</Td>
+                    <Td>
+                      <Button
+                        variant="outline"
+                        className="h-8 px-3"
+                        onClick={() => {
+                          setEditingId(h.id);
+                          setForm({ name: h.name, address: h.address });
+                          setShowForm(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))
+              )}
             </Tbody>
           </Table>
         </CardContent>
@@ -107,5 +141,3 @@ export default function HostelsPage() {
     </div>
   );
 }
-
-
