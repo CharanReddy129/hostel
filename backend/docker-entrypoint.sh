@@ -34,7 +34,7 @@ if [ -d prisma/migrations ] && [ "$(ls -A prisma/migrations 2>/dev/null)" ]; the
   npx prisma migrate deploy
 else
   echo "No Prisma migrations found. Running prisma db push to sync schema..."
-  npx prisma db push
+  npx prisma db push --accept-data-loss
 fi
 
 # Start server

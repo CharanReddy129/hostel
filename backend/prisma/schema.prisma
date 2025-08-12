@@ -13,12 +13,6 @@ enum Role {
   TENANT
 }
 
-enum RoomType {
-  SINGLE
-  DOUBLE
-  TRIPLE
-  DORMITORY
-}
 
 enum BedStatus {
   VACANT
@@ -100,8 +94,6 @@ model Room {
   id         String   @id @default(uuid())
   hostelId   String
   roomNumber String
-  floor      String
-  roomType   RoomType
   capacity   Int
   amenities  Json     @default("[]")
   createdAt  DateTime @default(now())
