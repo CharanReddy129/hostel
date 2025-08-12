@@ -6,20 +6,20 @@ import { Sun, Moon } from 'lucide-react';
 export function Navbar() {
   const { theme, setTheme } = useTheme();
   return (
-    <header className="border-b bg-white">
+    <header className="border-b border-border bg-background text-foreground">
       <div className="container h-14 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="text-lg font-semibold">
             Hostel Admin
           </Link>
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 border border-blue-200">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground border border-border">
             Admin
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <span>admin@example.com</span>
           <button
-            className="h-9 w-9 grid place-items-center rounded-md border hover:bg-muted"
+            className="h-9 w-9 grid place-items-center rounded-md border border-border hover:bg-muted"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             aria-label="Toggle theme"
           >
@@ -31,5 +31,3 @@ export function Navbar() {
     </header>
   );
 }
-
-

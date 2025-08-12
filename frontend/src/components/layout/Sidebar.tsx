@@ -6,12 +6,11 @@ const nav = [
   { href: '/rooms', label: 'Rooms' },
     { href: '/tenants', label: 'Tenants' },
   { href: '/notices', label: 'Notices' },
-  { href: '/reports', label: 'Reports' },
-];
+  ];
 
 export function Sidebar() {
   return (
-    <aside className="hidden md:block md:w-60 border-r bg-white">
+    <aside className="hidden md:block md:w-60 border-r border-border bg-background text-foreground">
       <nav className="p-4 space-y-1">
         {nav.map((item) => (
           <Link
