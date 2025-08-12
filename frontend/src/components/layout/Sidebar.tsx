@@ -4,8 +4,7 @@ const nav = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/hostels', label: 'Hostels' },
   { href: '/rooms', label: 'Rooms' },
-  { href: '/beds', label: 'Beds' },
-  { href: '/tenants', label: 'Tenants' },
+    { href: '/tenants', label: 'Tenants' },
   { href: '/notices', label: 'Notices' },
   { href: '/reports', label: 'Reports' },
 ];

@@ -23,7 +23,7 @@ type TenantStay = {
 // GET /api/v1/rooms -> Room list
 type Room = { id: string; roomNumber: string };
 // GET /api/v1/beds -> Bed list
-type Bed = { id: string; bedNumber: string };
+type Bed = { id: string; bedNumber: string; monthlyRent?: number };
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState<TenantStay[]>([]);
@@ -81,6 +81,10 @@ export default function TenantsPage() {
     }
   }
 
+  function selectedBed() {
+    return beds.find((b) => b.id === form.bedId);
+  }
+
   async function fetchBedsForRoom(roomId: string) {
     if (!roomId) {
       setBeds([]);
@@ -90,7 +94,7 @@ export default function TenantsPage() {
       const res = await fetch(`${API_URL}/beds?limit=1000&roomId=${encodeURIComponent(roomId)}&status=VACANT`);
       const json = await res.json();
       if (json.success) {
-        const list = (json.data.beds as any[]).map((b) => ({ id: b.id, bedNumber: b.bedNumber })) as Bed[];
+        const list = (json.data.beds as any[]).map((b) => ({ id: b.id, bedNumber: b.bedNumber, monthlyRent: b.monthlyRent })) as Bed[];
         setBeds(list);
       } else {
         setBeds([]);
@@ -219,6 +223,9 @@ export default function TenantsPage() {
             <Label htmlFor="checkInDate">Check-in date</Label>
             <Input id="checkInDate" type="date" value={form.checkInDate} onChange={(e) => setForm((f) => ({ ...f, checkInDate: e.target.value }))} />
           </div>
+          {form.bedId && (
+            <div className="text-sm text-muted-foreground">Monthly Rent: ₹{(selectedBed()?.monthlyRent ?? 0).toLocaleString()}</div>
+          )}
         </div>
       </Modal>
 

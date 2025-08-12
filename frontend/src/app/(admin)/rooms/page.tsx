@@ -12,10 +12,12 @@ import { API_URL } from '@/lib/constants';
 // Backend types
 export type Room = { id: string; hostelId: string; roomNumber: string; floor: string; roomType: 'SINGLE'|'DOUBLE'|'TRIPLE'|'DORMITORY'; capacity: number };
 export type Hostel = { id: string; name: string };
+export type Bed = { id: string; roomId: string; status: 'VACANT'|'OCCUPIED'|'MAINTENANCE' };
 
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [hostels, setHostels] = useState<Hostel[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -38,15 +40,33 @@ export default function RoomsPage() {
   }
 
   async function fetchRooms() {
-    const res = await fetch(`${API_URL}/rooms`);
+    const res = await fetch(`${API_URL}/rooms?limit=1000`);
     const json = await res.json();
     if (json.success) setRooms(json.data.rooms);
+  }
+
+  async function fetchBeds() {
+    const res = await fetch(`${API_URL}/beds?limit=10000`);
+    const json = await res.json();
+    if (json.success) setBeds(json.data.beds as Bed[]);
   }
 
   useEffect(() => {
     fetchHostels();
     fetchRooms();
+    fetchBeds();
   }, []);
+
+  const occupancyByRoom = useMemo(() => {
+    const map: Record<string, { total: number; occ: number; vac: number }> = {};
+    for (const b of beds) {
+      const m = (map[b.roomId] ||= { total: 0, occ: 0, vac: 0 });
+      m.total += 1;
+      if (b.status === 'OCCUPIED') m.occ += 1;
+      if (b.status === 'VACANT') m.vac += 1;
+    }
+    return map;
+  }, [beds]);
 
   const handleSubmit = async () => {
     if (!form.hostelId || !form.roomNumber.trim() || !form.floor.trim()) return;
@@ -68,7 +88,7 @@ export default function RoomsPage() {
       }
       setShowForm(false);
       resetForm();
-      await fetchRooms();
+      await Promise.all([fetchRooms(), fetchBeds()]);
     } catch (e) {
       console.error('Failed to save room', e);
       alert('Failed to save room');
@@ -152,18 +172,25 @@ export default function RoomsPage() {
                 <Th>Floor</Th>
                 <Th>Type</Th>
                 <Th>Capacity</Th>
+                <Th>Occupied</Th>
+                <Th>Vacant</Th>
               </Tr>
             </Thead>
             <Tbody>
-              {filtered.map((r) => (
-                <Tr key={r.id}>
-                  <Td>{hostels.find((h) => h.id === r.hostelId)?.name || r.hostelId}</Td>
-                  <Td>{r.roomNumber}</Td>
-                  <Td>{r.floor}</Td>
-                  <Td>{r.roomType}</Td>
-                  <Td>{r.capacity}</Td>
-                </Tr>
-              ))}
+              {filtered.map((r) => {
+                const o = occupancyByRoom[r.id] || { total: 0, occ: 0, vac: 0 };
+                return (
+                  <Tr key={r.id}>
+                    <Td>{hostels.find((h) => h.id === r.hostelId)?.name || r.hostelId}</Td>
+                    <Td>{r.roomNumber}</Td>
+                    <Td>{r.floor}</Td>
+                    <Td>{r.roomType}</Td>
+                    <Td>{r.capacity}</Td>
+                    <Td>{o.occ}</Td>
+                    <Td>{o.vac}</Td>
+                  </Tr>
+                );
+              })}
             </Tbody>
           </Table>
         </CardContent>
